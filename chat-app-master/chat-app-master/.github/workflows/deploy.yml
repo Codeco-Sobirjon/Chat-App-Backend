@@ -1,0 +1,35 @@
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+
+          script: |
+            cd /var/www/chat-app
+            git pull
+            cd /var/www/chat-app/back-end
+            source env/bin/activate
+            
+            python3 -m pip install -r requirements.txt
+            python3 manage.py makemigrations chat
+            python3 manage.py migrate
+            deactivate
+            sudo systemctl start chat.socket
+            sudo systemctl enable chat.socket
+            sudo systemctl daemon-reload
+            sudo systemctl restart chat
+            sudo systemctl start daphne.socket
+            sudo systemctl enable daphne.socket
+            sudo systemctl daemon-reload
+            sudo systemctl restart daphne
+            echo "Deployed at BackEnd"
